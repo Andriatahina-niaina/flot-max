@@ -7,6 +7,8 @@ export interface GraphData {
   nodes: Node[];
   edges: Edge[];
   capacities: Capacity[];
+  source:Node;
+  sink:Node;
 }
 
 export interface FlowGraphElement {

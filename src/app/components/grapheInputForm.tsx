@@ -6,7 +6,6 @@ import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Edge, GraphData } from "../../types/types";
-import CytoscapeGraph from "../components/CytoscapeGraph";
 
 interface GraphInputFormProps {
   onGraphSubmit: (graph: GraphData) => void;
@@ -25,23 +24,34 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({ onGraphSubmit }) => {
     const nodeList = nodes.split(",");
     const edgeList = edges.split(";").map((edge) => edge.split(",") as Edge);
     const capacityList = capacities.split(",").map(Number);
-
+  
+    // Vérifier que tous les nœuds dans les arêtes existent dans la liste des nœuds
+    const nodeSet = new Set(nodeList);
+    for (const [source, target] of edgeList) {
+      if (!nodeSet.has(source) || !nodeSet.has(target)) {
+        setError(`Erreur : Le nœud "${source}" ou "${target}" est manquant.`);
+        return;
+      }
+    }
+  
     const graph: GraphData = {
       nodes: nodeList,
       edges: edgeList,
       capacities: capacityList,
+      source,
+      sink,
     };
-
+  
     setGraphData(graph);
     onGraphSubmit(graph);
   };
+  
 
   return (
     <div className="flex space-x-6 p-6 bg-white rounded-lg shadow-md">
-      {/* Formulaire */}
       <div className="w-1/2">
         <h3 className="text-xl font-bold mb-4">Saisie du graphe</h3>
-        
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Source :
@@ -122,3 +132,7 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({ onGraphSubmit }) => {
 };
 
 export default GraphInputForm;
+function setError(arg0: string) {
+  throw new Error("Function not implemented.");
+}
+
