@@ -5,7 +5,9 @@ import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Edge, GraphData } from "../../types/types";
+import { GraphData } from "../../types/types";
+
+type Edge = [string, string];
 
 interface GraphInputFormProps {
   onGraphSubmit: (graph: GraphData) => void;
