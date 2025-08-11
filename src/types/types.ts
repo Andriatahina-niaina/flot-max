@@ -14,11 +14,13 @@ export interface FlowGraphElement {
     target?: string;
     capacity?: number;
     flow?: number;
-    label?: string; // Nouvelle propriété
-    isSource?: boolean;
-    isSink?: boolean;
-    isInPath?: boolean;
+    label?: string;
+    isSource?: boolean | string;
+    isSink?: boolean | string;
+    isInPath?: boolean | string;
     pathFlow?: number;
-    isBackwardEdge?: boolean;
+    isBackwardEdge?: boolean | string;
+    saturated?: boolean | string;
+    blocked?: boolean | string;
   };
 }

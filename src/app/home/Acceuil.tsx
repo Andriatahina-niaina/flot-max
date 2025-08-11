@@ -38,12 +38,19 @@ const App: React.FC = () => {
       }
     }
 
+    // Vérification des capacités
+    if (graphData.capacities.some((capacity) => capacity <= 0)) {
+      setError("Toutes les capacités doivent être supérieures à 0.");
+      return;
+    }
+
     setGraph(graphData);
     initializeFlowGraph(graphData);
     setError(null);
     setIsCalculated(false);
     setEvolutionSteps([]);
     setMaxFlow(0);
+    setCurrentStepIndex(0);
   };
 
   const initializeFlowGraph = (graphData: GraphData) => {
@@ -56,22 +63,23 @@ const App: React.FC = () => {
           id: node,
           isSource: node === graphData.source,
           isSink: node === graphData.sink,
+          isInPath: false,
         } 
       });
     });
 
     // Ajouter les arêtes
     graphData.edges.forEach(([source, target], index) => {
-      if (!graphData.nodes.includes(source) || !graphData.nodes.includes(target)) {
-        console.error(`Erreur : Le nœud source (${source}) ou cible (${target}) est introuvable.`);
-        return;
-      }
       elements.push({
         data: {
           id: `${source}-${target}`,
           source: source,
           target: target,
           capacity: graphData.capacities[index],
+          flow: 0,
+          label: `0/${graphData.capacities[index]}`,
+          isBackwardEdge: false,
+          isInPath: false,
         },
       });
     });
@@ -101,11 +109,30 @@ const App: React.FC = () => {
   };
 
   const handlePreviousStep = () => {
-    setCurrentStepIndex(Math.max(0, currentStepIndex - 1));
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
   };
 
   const handleNextStep = () => {
-    setCurrentStepIndex(Math.min(evolutionSteps.length - 1, currentStepIndex + 1));
+    if (currentStepIndex < evolutionSteps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    }
+  };
+
+  const handleReset = () => {
+    setIsCalculated(false);
+    setEvolutionSteps([]);
+    setMaxFlow(0);
+    setCurrentStepIndex(0);
+    initializeFlowGraph(graph);
+  };
+
+  const getCurrentElements = () => {
+    if (isCalculated && evolutionSteps.length > 0) {
+      return evolutionSteps[currentStepIndex].elements;
+    }
+    return flowGraph;
   };
 
   return (
@@ -116,7 +143,12 @@ const App: React.FC = () => {
       
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Configuration du Graphe</h2>
-        <GraphInputForm onGraphSubmit={onGraphSubmit} />
+        <GraphInputForm 
+          onGraphSubmit={onGraphSubmit} 
+          evolutionSteps={evolutionSteps}
+          currentStep={currentStepIndex}
+          maxFlow={maxFlow}
+        />
         {error && (
           <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
             {error}
@@ -126,17 +158,41 @@ const App: React.FC = () => {
 
       {flowGraph.length > 0 && (
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Graphe Initial</h2>
-          <CytoscapeGraph elements={flowGraph} />
-          
-          <div className="mt-4 flex justify-center">
-            <Button 
-              label="Calculer le flot maximum" 
-              onClick={handleCalculateMaxFlow} 
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              disabled={isCalculated}
-            />
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              {isCalculated ? "Visualisation du Flot" : "Graphe Initial"}
+            </h2>
+            {isCalculated && (
+              <Button 
+                label="Réinitialiser" 
+                onClick={handleReset}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              />
+            )}
           </div>
+          
+          <CytoscapeGraph 
+            elements={getCurrentElements()}
+            stepInfo={
+              isCalculated && evolutionSteps[currentStepIndex] ? {
+                pathFlow: evolutionSteps[currentStepIndex].pathFlow,
+                path: evolutionSteps[currentStepIndex].path,
+                description: evolutionSteps[currentStepIndex].description,
+                stepNumber: currentStepIndex + 1,
+                totalSteps: evolutionSteps.length,
+              } : undefined
+            }
+          />
+          
+          {!isCalculated && (
+            <div className="mt-4 flex justify-center">
+              <Button 
+                label="Calculer le flot maximum" 
+                onClick={handleCalculateMaxFlow} 
+                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -144,7 +200,7 @@ const App: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">
-              Évolution de l'Algorithme
+              Contrôle des Étapes
             </h2>
             <div className="flex items-center space-x-4">
               <Button 
@@ -164,16 +220,6 @@ const App: React.FC = () => {
               />
             </div>
           </div>
-          
-          {evolutionSteps[currentStepIndex] && (
-            <CytoscapeGraph 
-              elements={evolutionSteps[currentStepIndex].elements}
-              stepInfo={{
-                pathFlow: evolutionSteps[currentStepIndex].pathFlow,
-                path: evolutionSteps[currentStepIndex].path,
-              }}
-            />
-          )}
         </div>
       )}
 
@@ -184,7 +230,7 @@ const App: React.FC = () => {
             Flot Maximum : {maxFlow}
           </div>
           <div className="text-gray-600">
-            Algorithme terminé en {Math.floor(evolutionSteps.length / 2)} itérations
+            Algorithme terminé en {evolutionSteps.length} étapes
           </div>
         </div>
       )}

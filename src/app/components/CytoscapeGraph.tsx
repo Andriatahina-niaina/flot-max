@@ -47,7 +47,7 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
       container: cyRef.current,
       elements: validElements,
       style: [
-        // Style pour les nœuds normaux
+        // Style de base pour les nœuds
         {
           selector: "node",
           style: {
@@ -63,35 +63,35 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
             "border-color": "#333",
           },
         },
-        // Style pour le nœud source
+        // Nœud source
         {
-          selector: "node[isSource = true]",
+          selector: 'node[isSource = "true"]',
           style: {
             "background-color": "#4CAF50",
             "border-color": "#2E7D32",
             "border-width": 3,
           },
         },
-        // Style pour le nœud puits
+        // Nœud puits
         {
-          selector: "node[isSink = true]",
+          selector: 'node[isSink = "true"]',
           style: {
             "background-color": "#F44336",
             "border-color": "#C62828",
             "border-width": 3,
           },
         },
-        // Style pour les nœuds dans le chemin actuel
+        // Nœuds dans le chemin actuel
         {
-          selector: "node[isInPath = true]",
+          selector: 'node[isInPath = "true"]',
           style: {
-            "background-color": "#FFD700",
-            "border-color": "#FFA000",
+            "background-color": "#FFA500",
+            "border-color": "#CC8400",
             "border-width": 4,
             color: "#000",
           },
         },
-        // Style pour les arêtes normales
+        // Style de base pour les arêtes
         {
           selector: "edge",
           style: {
@@ -110,44 +110,54 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
             "text-border-style": "solid",
           },
         },
-        // Style pour les arêtes dans le chemin actuel
+        // Arêtes dans le chemin actuel (orange)
         {
-          selector: "edge[isInPath = true]",
+          selector: 'edge[isInPath = "true"]',
           style: {
             width: 5,
-            "line-color": "#FF5722",
-            "target-arrow-color": "#FF5722",
-            "source-arrow-color": "#FF5722",
+            "line-color": "#FFA500",
+            "target-arrow-color": "#FFA500",
+            "source-arrow-color": "#FFA500",
             "text-background-color": "#FFE0B2",
             "font-weight": "bold",
           },
         },
-        // Style pour les arêtes saturées (flow = capacity)
+        // Arêtes saturées (rouge)
         {
-          selector: "edge[flow = capacity]",
+          selector: 'edge[saturated = "true"]',
           style: {
-            "line-color": "#9C27B0",
-            "target-arrow-color": "#9C27B0",
+            "line-color": "#FF0000",
+            "target-arrow-color": "#FF0000",
             "line-style": "solid",
             width: 4,
           },
         },
-        // Style pour les arêtes de retour (backward edges)
+        // Arêtes bloquées (bleu)
         {
-          selector: "edge[isBackwardEdge = true]",
+          selector: 'edge[blocked = "true"]',
           style: {
-            "line-style": "dashed",
-            "line-color": "#2196F3",
-            "target-arrow-color": "#2196F3",
+            "line-color": "#0000FF",
+            "target-arrow-color": "#0000FF",
+            "line-style": "dotted",
+            width: 2,
           },
         },
-        // Style pour les arêtes de retour dans le chemin
+        // Arêtes de retour (gris)
         {
-          selector: "edge[isBackwardEdge = true][isInPath = true]",
+          selector: 'edge[isBackwardEdge = "true"]',
           style: {
             "line-style": "dashed",
-            "line-color": "#FF5722",
-            "target-arrow-color": "#FF5722",
+            "line-color": "#808080",
+            "target-arrow-color": "#808080",
+          },
+        },
+        // Arêtes de retour dans le chemin (orange aussi)
+        {
+          selector: 'edge[isBackwardEdge = "true"][isInPath = "true"]',
+          style: {
+            "line-style": "dashed",
+            "line-color": "#FFA500",
+            "target-arrow-color": "#FFA500",
             width: 5,
           },
         },
@@ -209,7 +219,7 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
       {/* Graphique Cytoscape */}
       <div ref={cyRef} style={{ width: "100%", height: "500px" }} />
       
-      {/* Légende */}
+      {/* Légende mise à jour */}
       <div className="mt-4 p-3 bg-gray-50 rounded-lg">
         <h4 className="text-sm font-semibold text-gray-700 mb-2">Légende :</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
@@ -222,19 +232,19 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
             <span>Puits</span>
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2 border-2 border-yellow-600"></div>
+            <div className="w-4 h-4 bg-orange-500 rounded-full mr-2 border-2 border-orange-600"></div>
             <span>Chemin actuel</span>
           </div>
           <div className="flex items-center">
-            <div className="w-6 h-1 bg-purple-500 mr-2"></div>
+            <div className="w-6 h-1 bg-red-500 mr-2"></div>
             <span>Arête saturée</span>
           </div>
           <div className="flex items-center">
-            <div className="w-6 h-1 bg-orange-500 mr-2"></div>
-            <span>Chemin augmentant</span>
+            <div className="w-6 h-1 bg-blue-500 mr-2"></div>
+            <span>Arête bloquée</span>
           </div>
           <div className="flex items-center">
-            <div className="w-6 h-1 bg-blue-500 border-dashed border-t-2 mr-2"></div>
+            <div className="w-6 h-1 bg-gray-500 border-dashed border-t-2 mr-2"></div>
             <span>Arête de retour</span>
           </div>
           <div className="flex items-center">
