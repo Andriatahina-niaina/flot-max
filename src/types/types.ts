@@ -7,6 +7,22 @@ export interface GraphData {
   sink: string;
 }
 
+export interface MaxFlowResult {
+  maxFlow: number;
+  steps: FlowStep[];
+  iterations: number;
+  finalGraph: FlowGraphElement[]
+}
+
+export interface FlowStep {
+  flows: number[];
+  pathFlow: number;
+  path: string[];
+  description: string;
+  elements?: FlowGraphElement[]
+  residualMatrix: { [key: string]: { [key: string]: number } };
+}
+
 export interface FlowGraphElement {
   data: {
     id: string;

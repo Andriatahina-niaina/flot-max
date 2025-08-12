@@ -20,7 +20,7 @@ const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({ elements, stepInfo }) =
   const cyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!cyRef.current) return;
+    if (!cyRef.current || !elements) return;
 
     // Séparer les nœuds et les arêtes
     const nodes = elements.filter((elem) => !elem.data.source && !elem.data.target);

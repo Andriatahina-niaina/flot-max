@@ -1,4 +1,4 @@
-import { FlowGraphElement } from "@/types/types";
+import { FlowGraphElement, FlowStep, MaxFlowResult } from "../../types/types";
 
 export const calculateMaxFlow = (
   nodes: string[],
@@ -6,206 +6,266 @@ export const calculateMaxFlow = (
   initialCapacities: number[],
   source: string,
   sink: string
-) => {
-  const size = nodes.length;
-  const flowGraph: number[][] = Array.from({ length: size }, () => Array(size).fill(0));
-  const residualGraph: number[][] = Array.from({ length: size }, () => Array(size).fill(0));
-  const nodeToIndex = new Map<string, number>();
-  nodes.forEach((node, index) => nodeToIndex.set(node, index));
-
-  // Initialisation du graphe résiduel
-  edges.forEach(([u, v], index) => {
-    const uIndex = nodeToIndex.get(u)!;
-    const vIndex = nodeToIndex.get(v)!;
-    residualGraph[uIndex][vIndex] = initialCapacities[index];
-  });
-
-  // Fonction pour générer les éléments du graphe avec état actuel
-  const generateFlowElements = (
-    currentPath: number[] = [],
-    pathFlow: number = 0
-  ): FlowGraphElement[] => {
-    const elements: FlowGraphElement[] = [];
-
-    // Ajouter les nœuds
-    nodes.forEach((node, index) => {
-      elements.push({
-        data: {
-          id: node,
-          isSource: node === source,
-          isSink: node === sink,
-          isInPath: currentPath.includes(index),
-        },
-      });
-    });
-
-    // Ajouter les arêtes avec état actuel
-    edges.forEach(([u, v], edgeIndex) => {
-      const uIndex = nodeToIndex.get(u)!;
-      const vIndex = nodeToIndex.get(v)!;
-      const capacity = residualGraph[uIndex][vIndex] + flowGraph[vIndex][uIndex];
-      const flow = flowGraph[uIndex][vIndex];
-      const residual = residualGraph[uIndex][vIndex];
-
-      // Vérifier si l'arête est dans le chemin actuel
-      let isInPath = false;
-      if (currentPath.length > 1) {
-        for (let i = 0; i < currentPath.length - 1; i++) {
-          if (currentPath[i] === uIndex && currentPath[i+1] === vIndex) {
-            isInPath = true;
-            break;
-          }
-        }
-      }
-
-      // Vérifier si c'est une arête de retour (flot inverse)
-      const isBackwardEdge = flowGraph[vIndex][uIndex] > 0;
-
-      elements.push({
-        data: {
-          id: `${u}-${v}-${edgeIndex}`,
-          source: u,
-          target: v,
-          capacity: capacity,
-          flow: flow,
-          label: `${flow}/${capacity}`,
-          isInPath: isInPath ? "true" : "false",
-          isBackwardEdge: isBackwardEdge ? "true" : "false",
-          saturated: (flow === capacity) ? "true" : "false",
-          blocked: (capacity === 0) ? "true" : "false",
-          pathFlow: isInPath ? pathFlow : undefined,
-        },
-      });
-    });
-
-    return elements;
-  };
-
+): MaxFlowResult => {
+  const capacities = [...initialCapacities];
+  const flows = new Array(edges.length).fill(0);
+  const steps: FlowStep[] = [];
   let maxFlow = 0;
-  const parent = new Array(size).fill(-1);
-  const steps: any[] = [];
 
   // État initial
   steps.push({
-    elements: generateFlowElements(),
+    flows: [...flows],
     pathFlow: 0,
     path: [],
     description: "État initial : Aucun flot n'a encore été envoyé",
-    flows: new Array(edges.length).fill(0),
+    residualMatrix: createResidualMatrix(nodes, edges, capacities, flows),
   });
 
   let iterationCount = 0;
   const MAX_ITERATIONS = 100;
 
-  while (true) {
+  while (iterationCount < MAX_ITERATIONS) {
     iterationCount++;
-    if (iterationCount > MAX_ITERATIONS) break;
 
-    // Trouver un chemin augmentant avec BFS
-    const visited = new Array(size).fill(false);
-    const queue: number[] = [];
-    const srcIndex = nodeToIndex.get(source)!;
-    const sinkIndex = nodeToIndex.get(sink)!;
+    // Trouver tous les chemins possibles
+    const allPaths = findAllPaths(nodes, edges, capacities, flows, source, sink);
+    if (allPaths.length === 0) break;
 
-    queue.push(srcIndex);
-    visited[srcIndex] = true;
-    parent.fill(-1);
+    // Trouver le chemin avec la capacité minimale
+    const { path, minCapacity } = findPathWithMinCapacity(allPaths, edges, capacities, flows);
+    if (minCapacity === 0) break;
 
-    let foundPath = false;
-    while (queue.length > 0 && !foundPath) {
-      const u = queue.shift()!;
-      for (let v = 0; v < size; v++) {
-        if (!visited[v] && residualGraph[u][v] > 0) {
-          parent[v] = u;
-          visited[v] = true;
-          if (v === sinkIndex) {
-            foundPath = true;
-            break;
-          }
-          queue.push(v);
-        }
-      }
-    }
+    // Mettre à jour les flots
+    updateFlowsForPath(path, edges, flows, capacities, minCapacity);
+    maxFlow += minCapacity;
 
-    if (!foundPath) break;
-
-    // Calculer le flux maximal possible sur ce chemin
-    let pathFlow = Infinity;
-    let v = sinkIndex;
-    const currentPath: number[] = [v];
-
-    while (v !== srcIndex) {
-      const u = parent[v];
-      pathFlow = Math.min(pathFlow, residualGraph[u][v]);
-      v = u;
-      currentPath.unshift(v);
-    }
-
-    const pathNames = currentPath.map(idx => nodes[idx]);
-
-    // Étape 1: Chemin trouvé
+    // Enregistrer l'étape
     steps.push({
-      elements: generateFlowElements(currentPath, pathFlow),
-      pathFlow: pathFlow,
-      path: pathNames,
-      description: `Étape ${iterationCount}.1 : Chemin augmentant trouvé (${pathNames.join(" → ")}) avec un flux possible de ${pathFlow}`,
-      flows: edges.map(([u, v], i) => {
-        const uIdx = nodeToIndex.get(u)!;
-        const vIdx = nodeToIndex.get(v)!;
-        return flowGraph[uIdx][vIdx];
-      }),
-    });
-
-    // Mettre à jour les flots et le graphe résiduel
-    v = sinkIndex;
-    while (v !== srcIndex) {
-      const u = parent[v];
-      
-      // Mise à jour du flot direct
-      flowGraph[u][v] += pathFlow;
-      // Mise à jour du flot inverse
-      flowGraph[v][u] -= pathFlow;
-      
-      // Mise à jour du graphe résiduel
-      residualGraph[u][v] -= pathFlow;
-      residualGraph[v][u] += pathFlow;
-      
-      v = u;
-    }
-
-    maxFlow += pathFlow;
-
-    // Étape 2: Après mise à jour des flots
-    steps.push({
-      elements: generateFlowElements([], 0),
-      pathFlow: pathFlow,
-      path: pathNames,
-      description: `Étape ${iterationCount}.2 : Flots mis à jour - Nouveau flot total = ${maxFlow}`,
-      flows: edges.map(([u, v], i) => {
-        const uIdx = nodeToIndex.get(u)!;
-        const vIdx = nodeToIndex.get(v)!;
-        return flowGraph[uIdx][vIdx];
-      }),
+      elements: generateFlowElements(nodes, edges, capacities, flows, source, sink, path),
+      pathFlow: minCapacity,
+      path: path,
+      description: `Étape ${iterationCount} : Chemin ${path.join(" → ")} avec capacité minimale ${minCapacity}`,
+      flows: [...flows],
+      residualMatrix: createResidualMatrix(nodes, edges, capacities, flows),
     });
   }
 
   // État final
   steps.push({
-    elements: generateFlowElements(),
+    elements: generateFlowElements(nodes, edges, capacities, flows, source, sink),
     pathFlow: maxFlow,
     path: [],
-    description: `État final : Flot maximum de ${maxFlow} atteint après ${iterationCount-1} itérations`,
-    flows: edges.map(([u, v], i) => {
-      const uIdx = nodeToIndex.get(u)!;
-      const vIdx = nodeToIndex.get(v)!;
-      return flowGraph[uIdx][vIdx];
-    }),
+    description: `État final : Flot maximum de ${maxFlow} atteint après ${iterationCount} itérations`,
+    flows: [...flows],
+    residualMatrix: createResidualMatrix(nodes, edges, capacities, flows),
   });
 
   return {
     maxFlow,
     steps,
-    finalGraph: generateFlowElements(),
-    iterations: iterationCount - 1,
+    iterations: iterationCount,
+    finalGraph: generateFlowElements(nodes, edges, capacities, flows, source, sink)
   };
 };
+
+// Fonctions utilitaires
+function findAllPaths(
+  nodes: string[],
+  edges: [string, string][],
+  capacities: number[],
+  flows: number[],
+  source: string,
+  sink: string
+): string[][] {
+  const paths: string[][] = [];
+  const visited = new Set<string>();
+
+  function dfs(current: string, path: string[]) {
+    if (current === sink) {
+      paths.push([...path]);
+      return;
+    }
+
+    visited.add(current);
+
+    edges.forEach(([u, v], index) => {
+      if (u === current && !visited.has(v)) {
+        const residual = capacities[index] - flows[index];
+        if (residual > 0) {
+          path.push(v);
+          dfs(v, path);
+          path.pop();
+        }
+      }
+    });
+
+    visited.delete(current);
+  }
+
+  dfs(source, [source]);
+  return paths;
+}
+
+function findPathWithMinCapacity(
+  paths: string[][],
+  edges: [string, string][],
+  capacities: number[],
+  flows: number[]
+): { path: string[]; minCapacity: number } {
+  let minPath: string[] = [];
+  let minCapacity = Infinity;
+
+  for (const path of paths) {
+    let currentMin = Infinity;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const u = path[i];
+      const v = path[i + 1];
+      const edgeIndex = edges.findIndex(([from, to]) => from === u && to === v);
+      if (edgeIndex === -1) continue;
+
+      const residual = capacities[edgeIndex] - flows[edgeIndex];
+      currentMin = Math.min(currentMin, residual);
+    }
+
+    if (currentMin < minCapacity) {
+      minCapacity = currentMin;
+      minPath = path;
+    }
+  }
+
+  return { path: minPath, minCapacity };
+}
+
+function updateFlowsForPath(
+  path: string[],
+  edges: [string, string][],
+  flows: number[],
+  capacities: number[],
+  flowToAdd: number
+) {
+  for (let i = 0; i < path.length - 1; i++) {
+    const u = path[i];
+    const v = path[i + 1];
+    const edgeIndex = edges.findIndex(([from, to]) => from === u && to === v);
+    if (edgeIndex !== -1) {
+      flows[edgeIndex] += flowToAdd;
+    }
+  }
+}
+
+function createResidualMatrix(
+  nodes: string[],
+  edges: [string, string][],
+  capacities: number[],
+  flows: number[]
+): { [key: string]: { [key: string]: number } } {
+  const matrix: { [key: string]: { [key: string]: number } } = {};
+
+  nodes.forEach(node1 => {
+    matrix[node1] = {};
+    nodes.forEach(node2 => {
+      if (node1 !== node2) {
+        matrix[node1][node2] = 0;
+      }
+    });
+  });
+
+  edges.forEach(([from, to], index) => {
+    const residual = capacities[index] - flows[index];
+    matrix[from][to] = Math.max(0, residual);
+  });
+
+  return matrix;
+}
+
+function generateInitialElements(
+  nodes: string[],
+  edges: [string, string][],
+  capacities: number[],
+  flows: number[],
+  source: string,
+  sink: string
+): FlowGraphElement[] {
+  const elements: FlowGraphElement[] = [];
+
+  nodes.forEach(node => {
+    elements.push({
+      data: {
+        id: node,
+        isSource: node === source,
+        isSink: node === sink,
+        isInPath: false,
+      },
+    });
+  });
+
+  edges.forEach(([u, v], index) => {
+    elements.push({
+      data: {
+        id: `${u}-${v}-${index}`,
+        source: u,
+        target: v,
+        capacity: capacities[index],
+        flow: flows[index],
+        label: `${flows[index]}/${capacities[index]}`,
+        isInPath: "false",
+        isBackwardEdge: "false",
+        saturated: flows[index] === capacities[index] ? "true" : "false",
+        blocked: capacities[index] === 0 ? "true" : "false",
+      },
+    });
+  });
+
+  return elements;
+}
+
+function generateFlowElements(
+  nodes: string[],
+  edges: [string, string][],
+  capacities: number[],
+  flows: number[],
+  source: string,
+  sink: string,
+  currentPath: string[] = []
+): FlowGraphElement[] {
+  const elements: FlowGraphElement[] = [];
+
+  nodes.forEach(node => {
+    elements.push({
+      data: {
+        id: node,
+        isSource: node === source,
+        isSink: node === sink,
+        isInPath: currentPath.includes(node),
+      },
+    });
+  });
+
+  edges.forEach(([u, v], index) => {
+    const isInPath = currentPath.length > 1 && 
+      currentPath.some((node, i) => 
+        i < currentPath.length - 1 && 
+        node === u && 
+        currentPath[i + 1] === v
+      );
+
+    elements.push({
+      data: {
+        id: `${u}-${v}-${index}`,
+        source: u,
+        target: v,
+        capacity: capacities[index],
+        flow: flows[index],
+        label: `${flows[index]}/${capacities[index]}`,
+        isInPath: isInPath ? "true" : "false",
+        isBackwardEdge: "false",
+        saturated: flows[index] === capacities[index] ? "true" : "false",
+        blocked: capacities[index] === 0 ? "true" : "false",
+        pathFlow: isInPath ? capacities[index] - flows[index] : undefined,
+      },
+    });
+  });
+
+  return elements;
+}

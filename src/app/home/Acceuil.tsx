@@ -172,14 +172,14 @@ const App: React.FC = () => {
           </div>
           
           <CytoscapeGraph 
-            elements={getCurrentElements()}
+            elements={getCurrentElements() || []} // Fournit un tableau vide par défaut
             stepInfo={
-              isCalculated && evolutionSteps[currentStepIndex] ? {
-                pathFlow: evolutionSteps[currentStepIndex].pathFlow,
-                path: evolutionSteps[currentStepIndex].path,
-                description: evolutionSteps[currentStepIndex].description,
-                stepNumber: currentStepIndex + 1,
-                totalSteps: evolutionSteps.length,
+            isCalculated && evolutionSteps[currentStepIndex] ? {
+            pathFlow: evolutionSteps[currentStepIndex].pathFlow,
+            path: evolutionSteps[currentStepIndex].path,
+            description: evolutionSteps[currentStepIndex].description,
+            stepNumber: currentStepIndex + 1,
+            totalSteps: evolutionSteps.length,
               } : undefined
             }
           />

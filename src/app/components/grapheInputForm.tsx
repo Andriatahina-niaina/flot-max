@@ -31,19 +31,17 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
   currentStep = 0,
   maxFlow = 0
 }) => {
-  const [source, setSource] = useState<string>("A");
-  const [sink, setSink] = useState<string>("J");
-  const [nodes, setNodes] = useState<string>("A,B,C,D,E,F,G,H,I,J");
-  const [edges, setEdges] = useState<string>("A,B;A,D;B,C;B,E;C,F;C,I;D,E;D,G;E,F;E,H;F,I;G,H;H,I;I,J");
-  const [capacities, setCapacities] = useState<string>("60,40,40,25,20,50,30,20,10,20,60,30,20,60");
+  const [source, setSource] = useState<string>("X");
+  const [sink, setSink] = useState<string>("Y");
+  const [nodes, setNodes] = useState<string>("X,A,B,C,D,E,F,G,Y");
+  const [edges, setEdges] = useState<string>("X,A;X,B;X,C;A,D;A,E;A,G;B,D;B,E;B,F;C,F;C,G;D,Y;E,Y;F,Y;G,Y");
+  const [capacities, setCapacities] = useState<string>("45,25,30,10,15,20,20,5,15,10,15,30,10,20,40");
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingCell, setEditingCell] = useState<{from: string, to: string} | null>(null);
   const [editValue, setEditValue] = useState<string>("");
-
   const [graphData, setGraphData] = useState<GraphData | null>(null);
 
-  // Charger l'exemple par défaut au démarrage
   useEffect(() => {
     handleSubmit();
   }, []);
@@ -57,7 +55,6 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
       });
       const capacityList = capacities.split(",").map(c => Number(c.trim()));
 
-      // Vérifications
       const nodeSet = new Set(nodeList);
       for (const [source, target] of edgeList) {
         if (!nodeSet.has(source) || !nodeSet.has(target)) {
@@ -92,22 +89,18 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
     }
   };
 
-  // Calculer la matrice résiduelle pour l'étape actuelle
   const getCurrentResidualMatrix = () => {
     if (!graphData) return null;
 
     let currentFlows: number[];
     if (evolutionSteps.length > 0 && currentStep < evolutionSteps.length) {
-      // Utiliser les flots de l'étape actuelle
       currentFlows = evolutionSteps[currentStep].flows;
     } else {
-      // Pas de flots (état initial)
       currentFlows = new Array(graphData.edges.length).fill(0);
     }
 
     const matrix: { [key: string]: { [key: string]: number } } = {};
     
-    // Initialiser la matrice
     graphData.nodes.forEach(node1 => {
       matrix[node1] = {};
       graphData.nodes.forEach(node2 => {
@@ -117,17 +110,14 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
       });
     });
 
-    // Remplir avec les capacités résiduelles
     graphData.edges.forEach((edge, index) => {
       const [from, to] = edge;
       const capacity = graphData.capacities[index];
       const flow = currentFlows[index] || 0;
       const residual = capacity - flow;
 
-      // Capacité résiduelle directe
       matrix[from][to] = Math.max(0, residual);
 
-      // Capacité résiduelle inverse (flot de retour)
       if (flow > 0) {
         matrix[to][from] = flow;
       }
@@ -146,12 +136,12 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
     }
     
     if (value === 0) {
-      return { backgroundColor: '#f8d7da', color: '#721c24' }; // Rouge pour bloqué
+      return { backgroundColor: '#f8d7da', color: '#721c24' };
     }
     if (value > 0 && value <= 10) {
-      return { backgroundColor: '#fff3cd', color: '#856404' }; // Jaune pour faible capacité
+      return { backgroundColor: '#fff3cd', color: '#856404' };
     }
-    return { backgroundColor: '#d4edda', color: '#155724' }; // Vert pour capacité normale
+    return { backgroundColor: '#d4edda', color: '#155724' };
   };
 
   const handleCellClick = (from: string, to: string, value: number) => {
@@ -171,24 +161,19 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
       return;
     }
 
-    // Trouver l'index de l'arête à modifier
     const edgeIndex = graphData.edges.findIndex(
       ([from, to]) => from === editingCell.from && to === editingCell.to
     );
 
     if (edgeIndex !== -1) {
-      // Modifier la capacité existante
       const newCapacities = [...graphData.capacities];
       newCapacities[edgeIndex] = newValue;
       
       const newGraph = { ...graphData, capacities: newCapacities };
       setGraphData(newGraph);
       onGraphSubmit?.(newGraph);
-      
-      // Mettre à jour le champ capacities
       setCapacities(newCapacities.join(","));
     } else {
-      // Ajouter une nouvelle arête
       const newEdges = [...graphData.edges, [editingCell.from, editingCell.to] as Edge];
       const newCapacities = [...graphData.capacities, newValue];
       
@@ -200,8 +185,6 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
       
       setGraphData(newGraph);
       onGraphSubmit?.(newGraph);
-      
-      // Mettre à jour les champs
       setEdges(newEdges.map(([from, to]) => `${from},${to}`).join(";"));
       setCapacities(newCapacities.join(","));
     }
@@ -237,10 +220,9 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
-          Analyseur de Flot Maximal avec Matrice Résiduelle Évolutive
+          Algorithme de Flot Maximal avec Capacité Minimale
         </h2>
         
-        {/* Informations sur l'étape actuelle */}
         {evolutionSteps.length > 0 && (
           <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-r-lg">
             <div className="flex justify-between items-center">
@@ -250,14 +232,14 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
                 </h4>
                 {stepInfo.pathFlow > 0 && (
                   <p className="text-blue-700">
-                    Chemin augmentant: {stepInfo.path.join(" → ")} (Flot: {stepInfo.pathFlow})
+                    Chemin sélectionné: {stepInfo.path.join(" → ")} (Capacité minimale: {stepInfo.pathFlow})
                   </p>
                 )}
               </div>
               {maxFlow > 0 && (
                 <div className="text-right">
                   <div className="text-2xl font-bold text-blue-600">
-                    Flot Max: {maxFlow}
+                    Flot Cumulé: {maxFlow}
                   </div>
                   <div className="text-sm text-blue-500">
                     Étape {currentStep + 1} / {evolutionSteps.length}
@@ -269,7 +251,6 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-          {/* Formulaire de saisie */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Configuration du Graphe</h3>
 
@@ -350,7 +331,6 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
             )}
           </div>
 
-          {/* Tableau des arêtes */}
           {graphData && (
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-bold mb-4 text-gray-800">État des Arêtes</h3>
@@ -395,40 +375,29 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
             </div>
           )}
 
-          {/* Légende */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Légende</h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-center">
                 <div className="w-6 h-6 bg-green-200 border border-green-400 mr-3 rounded"></div>
-                <span>Capacité élevée (&gt; 10)</span>
+                <span>Capacité résiduelle disponible</span>
               </div>
               <div className="flex items-center">
                 <div className="w-6 h-6 bg-yellow-200 border border-yellow-400 mr-3 rounded"></div>
-                <span>Capacité faible (1-10)</span>
+                <span>Capacité résiduelle faible</span>
               </div>
               <div className="flex items-center">
                 <div className="w-6 h-6 bg-red-200 border border-red-400 mr-3 rounded"></div>
-                <span>Arc bloqué (0)</span>
+                <span>Arc bloqué (capacité 0)</span>
               </div>
               <div className="flex items-center">
                 <div className="w-6 h-6 bg-yellow-100 border-2 border-yellow-600 mr-3 rounded"></div>
                 <span>Cellule en édition</span>
               </div>
             </div>
-            
-            <div className="mt-6 p-3 bg-gray-50 rounded">
-              <h4 className="font-semibold mb-2">Instructions :</h4>
-              <ul className="text-sm space-y-1">
-                <li>• Cliquez sur une cellule pour modifier</li>
-                <li>• La matrice montre l'évolution en temps réel</li>
-                <li>• Les valeurs changent selon l'algorithme</li>
-              </ul>
-            </div>
           </div>
         </div>
 
-        {/* Matrice des capacités résiduelles */}
         {residualMatrix && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
@@ -504,8 +473,8 @@ const GraphInputForm: React.FC<GraphInputFormProps> = ({
             {evolutionSteps.length > 0 && (
               <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded">
                 <p><strong>Évolution détectée :</strong></p>
-                <p>La matrice se met à jour automatiquement selon l'étape de l'algorithme de Ford-Fulkerson.</p>
-                <p>Les valeurs résiduelles reflètent l'état actuel des flots dans le réseau.</p>
+                <p>La matrice montre les capacités résiduelles après chaque étape de l'algorithme.</p>
+                <p>Les valeurs sont mises à jour en soustrayant la capacité minimale du chemin sélectionné.</p>
               </div>
             )}
           </div>
